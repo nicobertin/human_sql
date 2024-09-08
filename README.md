@@ -16,7 +16,7 @@ If Bundler is not being used to manage dependencies, you can install the gem by 
 gem install human_sql
 ```
 
-Post Installation
+### Post Installation
 Once the gem is installed, you'll need to configure it by creating an initializer. In your Rails application, create a file named config/initializers/human_sql.rb and add the following:
 
 ```ruby
@@ -28,7 +28,8 @@ HumanSQLConfig = {
 
 Make sure to replace 'your_openai_api_key' with your actual API key from OpenAI. The default_language setting controls the language used for the natural language responses.
 
-Usage
+### Usage
+
 To use HumanSql in your application, simply call the run method on HumanSQL::QueryBuilder with a natural language query. For example:
 
 ```ruby
@@ -38,7 +39,11 @@ puts result
 
 This will convert the natural language query into an ActiveRecord query, execute it, and return the results formatted in the specified language.
 
-Development
+### Disclaimer
+
+IMPORTANT: By using this gem, you agree that the author is not responsible for any kind of data loss, damage, or issues that may arise from the use of this software. You are solely responsible for verifying the safety of the generated queries before running them in your production environment or on critical data. Use at your own risk.
+
+### Development
 
 After checking out the repo, run bin/setup to install dependencies. You can also run bin/console for an interactive prompt that will allow you to experiment.
 
@@ -56,12 +61,12 @@ bundle exec rake release
 
 This will create a git tag for the version, push git commits and the created tag, and push the .gem file to rubygems.org.
 
-Contributing
+### Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/nicobertin/human_sql. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the code of conduct.
 
-License
+### License
 The gem is available as open source under the terms of the MIT License.
 
-Code of Conduct
+### Code of Conduct
 Everyone interacting in the HumanSql project's codebases, issue trackers, chat rooms, and mailing lists is expected to follow the code of conduct.
