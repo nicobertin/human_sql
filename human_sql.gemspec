@@ -4,7 +4,7 @@ require_relative "lib/human_sql/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "human_sql"
-  spec.version       = HumanSQL::VERSION
+  spec.version       = HumanSql::VERSION
   spec.authors       = ["Nicolas Bertin"]
   spec.email         = ["bertin@live.cl"]
 

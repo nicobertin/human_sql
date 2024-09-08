@@ -28,9 +28,13 @@ module HumanSQL
       raise "Could not generate a valid query." if generated_query.blank?
 
       results = execute_query(generated_query)
+      raise "No results found." if results.blank?
+
       formatted_results = format_results_for_openai(results)
       natural_language_response = generate_natural_language_response(formatted_results, @user_input)
       natural_language_response
+    rescue StandardError => e
+      process_error_in_natural_language(e.message)
     end
 
     private
@@ -53,7 +57,7 @@ module HumanSQL
         messages: [
           {
             role: "system",
-            content: "You are an assistant that converts natural language into ActiveRecord queries. The queries must be in a single line of code."
+            content: "You are an assistant that converts natural language into ActiveRecord queries and explains results in natural language."
           },
           {
             role: "user",
@@ -93,13 +97,13 @@ module HumanSQL
 
     def execute_query(generated_query)
       eval(generated_query)
-    rescue StandardError => e
+    rescue StandardError
       nil
     end
 
     def format_results_for_openai(results)
       if results.is_a?(ActiveRecord::Relation) || results.is_a?(Array)
-        formatted_results = results.map do |result|
+        results.map do |result|
           if result.respond_to?(:attributes)
             result.attributes.map { |key, value| "#{key}: #{value}" }.join(', ')
           else
@@ -107,9 +111,8 @@ module HumanSQL
           end
         end.join("\\n")
       else
-        formatted_results = results.respond_to?(:attributes) ? results.attributes.map { |key, value| "#{key}: #{value}" }.join(', ') : results.to_s
+        results.respond_to?(:attributes) ? results.attributes.map { |key, value| "#{key}: #{value}" }.join(', ') : results.to_s
       end
-      formatted_results.gsub("\n", "\\n")
     end
 
     def generate_natural_language_response(formatted_results, user_input)
@@ -119,7 +122,19 @@ module HumanSQL
 
         #{formatted_results}
 
-        Please generate a natural language description that clearly and understandably explains these results to the user in #{HumanSQLConfig[:default_language]} language.
+        Please generate a natural language description that clearly and understandably explains these results to the user in #{HumanSQLConfig[:default_language]}.
+      PROMPT
+
+      call_openai_service(prompt)
+    end
+
+    def process_error_in_natural_language(error_message)
+      prompt = <<-PROMPT
+        An error occurred while processing the user's query. The error is as follows:
+
+        "#{error_message}"
+
+        Please generate a natural language response that explains the error in a way that is understandable to the user.
       PROMPT
 
       call_openai_service(prompt)
