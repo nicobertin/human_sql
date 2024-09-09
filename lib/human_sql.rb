@@ -134,7 +134,7 @@ module HumanSQL
 
         "#{error_message}"
 
-        Please generate a natural language response that explains the error in a way that is understandable to the user.
+        Please generate a natural language response that explains the error in a way that is understandable to the user in #{HumanSQLConfig[:default_language]}.
       PROMPT
 
       call_openai_service(prompt)
