@@ -7,7 +7,7 @@ require_relative 'human_sql/version'
 module HumanSQL
   class QueryBuilder
     OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
-
+    
     def initialize(user_input)
       @user_input = user_input
       @schema_content = File.read(Rails.root.join('db', 'schema.rb'))
@@ -19,8 +19,11 @@ module HumanSQL
 
     def generate_query
       prompt = build_query_prompt(@user_input, @schema_content)
+
       generated_query_response = call_openai_service(prompt)&.strip
-      extract_active_record_query(generated_query_response)
+      extracted_query = extract_active_record_query(generated_query_response)
+      
+      extracted_query
     end
 
     def get_results
@@ -32,6 +35,7 @@ module HumanSQL
 
       formatted_results = format_results_for_openai(results)
       natural_language_response = generate_natural_language_response(formatted_results, @user_input)
+
       natural_language_response
     rescue StandardError => e
       process_error_in_natural_language(e.message)
@@ -40,7 +44,7 @@ module HumanSQL
     private
 
     def build_query_prompt(user_input, schema_content)
-      <<-PROMPT
+      prompt = <<-PROMPT
         The user has requested: "#{user_input}".
         This is the database schema:
 
@@ -49,11 +53,12 @@ module HumanSQL
         Please generate an ActiveRecord query based on this schema. The query should be in a single line of code and return the result according to the user's request. 
         If it's necessary to access multiple related tables, prefer to use `includes` over `joins` to optimize data loading.
       PROMPT
+      prompt
     end
 
     def call_openai_service(prompt)
       body = {
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -84,12 +89,14 @@ module HumanSQL
         response_body = JSON.parse(response.body)
         response_body.dig('choices', 0, 'message', 'content')
       else
-        raise "Error in OpenAI API: #{response.code} - #{response.body}"
+        error_message = "Error in OpenAI API: #{response.code} - #{response.body}"
+        raise error_message
       end
     end
 
     def extract_active_record_query(response)
       return nil if response.blank?
+
       code_lines = response.lines.select { |line| line.strip.match(/^[A-Za-z]\w*\./) }
       return nil if code_lines.empty?
       code_lines.join("\n").strip
@@ -103,15 +110,17 @@ module HumanSQL
 
     def format_results_for_openai(results)
       if results.is_a?(ActiveRecord::Relation) || results.is_a?(Array)
-        results.map do |result|
+        formatted = results.map do |result|
           if result.respond_to?(:attributes)
             result.attributes.map { |key, value| "#{key}: #{value}" }.join(', ')
           else
             result.to_s
           end
         end.join("\\n")
+        formatted
       else
-        results.respond_to?(:attributes) ? results.attributes.map { |key, value| "#{key}: #{value}" }.join(', ') : results.to_s
+        formatted = results.respond_to?(:attributes) ? results.attributes.map { |key, value| "#{key}: #{value}" }.join(', ') : results.to_s
+        formatted
       end
     end
 
