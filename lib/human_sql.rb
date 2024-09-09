@@ -52,6 +52,7 @@ module HumanSQL
 
         Please generate an ActiveRecord query based on this schema. The query should be in a single line of code and return the result according to the user's request. 
         If it's necessary to access multiple related tables, prefer to use `includes` over `joins` to optimize data loading.
+        If the user indicates a date and time type field, only the value of the indicated date or time is saved without considering the time zone.
       PROMPT
       prompt
     end
