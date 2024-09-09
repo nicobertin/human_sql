@@ -132,6 +132,7 @@ module HumanSQL
         #{formatted_results}
 
         Please generate a natural language description that clearly and understandably explains these results to the user in #{HumanSQLConfig[:default_language]}.
+        Do not ask for confirmation, just confirm what has already been done.
       PROMPT
 
       call_openai_service(prompt)
