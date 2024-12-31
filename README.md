@@ -23,6 +23,17 @@ Once the gem is installed, you'll need to configure it by creating an initialize
 HumanSQLConfig = {
   api_key: 'your_openai_api_key',   # Replace with your actual OpenAI API key
   default_language: 'english'       # You can change this to 'spanish', 'japanese', etc.
+  ignored_tables: [
+    "active_storage_attachments",
+    "active_storage_blobs",
+    "active_storage_variant_records",
+    "good_job_batches",
+    "good_job_executions",
+    "good_job_processes",
+    "good_job_settings",
+    "good_jobs"
+  ],
+  additional_instructions: ""
 }
 ```
 

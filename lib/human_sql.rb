@@ -7,10 +7,10 @@ require_relative 'human_sql/version'
 module HumanSQL
   class QueryBuilder
     OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
-    
+
     def initialize(user_input)
       @user_input = user_input
-      @schema_content = File.read(Rails.root.join('db', 'schema.rb'))
+      @schema_content = summarize_schema_with_ignored_tables
     end
 
     def self.run(user_input)
@@ -43,6 +43,54 @@ module HumanSQL
 
     private
 
+    def summarize_schema_with_ignored_tables
+      schema_content = File.read(Rails.root.join('db', 'schema.rb'))
+      ignored_tables = HumanSQLConfig[:ignored_tables] || []
+
+      schema_summary = {}
+      schema_content.split("\n").each do |line|
+        if line.strip.start_with?("create_table")
+          table_name = line.match(/"([^"]+)"/)[1]
+          next if ignored_tables.include?(table_name)
+
+          schema_summary[table_name] = { columns: [], has_many: [], belongs_to: [] }
+        end
+
+        current_table = schema_summary.keys.last if schema_summary.any?
+
+        if line.strip.match?(/^t\.(\w+)\s+"([^"]+)"/) && current_table
+          next if ignored_tables.include?(current_table)
+
+          column_type = line.strip.match(/^t\.(\w+)\s+"([^"]+)"/)[1]
+          column_name = line.strip.match(/^t\.(\w+)\s+"([^"]+)"/)[2]
+          schema_summary[current_table][:columns] << "#{column_name}=#{column_type}"
+        end
+
+        if line.strip.start_with?("add_foreign_key")
+          match_data = line.strip.match(/"([^"]+)", "([^"]+)"(?:, column: "([^"]+)")?/)
+          if match_data
+            parent_table = match_data[1]
+            child_table = match_data[2]
+            next if ignored_tables.include?(parent_table) || ignored_tables.include?(child_table)
+
+            schema_summary[child_table] ||= { columns: [], has_many: [], belongs_to: [] }
+            schema_summary[parent_table] ||= { columns: [], has_many: [], belongs_to: [] }
+            schema_summary[child_table][:belongs_to] << parent_table
+            schema_summary[parent_table][:has_many] << child_table
+          end
+        end
+      end
+
+      schema_summary.map do |table, details|
+        columns = details[:columns].join(",")
+        has_many = details[:has_many].join(",")
+        belongs_to = details[:belongs_to].join(",")
+        %Q{#{table}={#{columns},:has_many=>[#{has_many}],:belongs_to=>[#{belongs_to}]}}
+      end.join("\n")
+    rescue StandardError => e
+      raise "Error processing schema: #{e.message}"
+    end
+
     def build_query_prompt(user_input, schema_content)
       prompt = <<-PROMPT
         The user has requested: "#{user_input}".
@@ -51,8 +99,10 @@ module HumanSQL
         #{schema_content}
 
         Please generate an ActiveRecord query based on this schema. The query should be in a single line of code and return the result according to the user's request. 
-        If it's necessary to access multiple related tables, prefer to use `includes` over `joins` to optimize data loading.
+        If it's necessary to access multiple related tables, prefer to use preload to optimize data loading.
         If the user indicates a date and time type field, only the value of the indicated date or time is saved without considering the time zone.
+
+        #{HumanSQLConfig[:additional_instructions]}
       PROMPT
       prompt
     end
